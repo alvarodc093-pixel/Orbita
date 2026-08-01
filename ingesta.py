@@ -242,9 +242,20 @@ def descargar_recurso_completo(resource, pausa):
         total = pagina.get("count", total)
         nuevos.extend(pagina["results"])
         offset += PAGE_SIZE
+        if resource == "launch":
+            # Guardado página a página: si se corta la descarga, al reanudar
+            # solo se pierde la página en curso (offset ya actualizado).
+            anadir_a_cached(resource, pagina["results"])
+            estado.setdefault(resource, {})
+            if total is not None:
+                estado[resource]["total"] = total
+            estado[resource]["ultimo_offset"] = offset
+            estado[resource]["fecha"] = datetime.now(timezone.utc).isoformat()
+            _guardar_estado(estado)
 
     registros = previos + nuevos
-    anadir_a_cached(resource, nuevos)
+    if resource != "launch":
+        anadir_a_cached(resource, nuevos)
 
     estado.setdefault(resource, {})
     if total is not None:
