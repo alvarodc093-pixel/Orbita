@@ -1,0 +1,14 @@
+# ============================================================
+# Tema visual de la app (estilo "cielo nocturno")
+# ============================================================
+
+[theme]
+base = "dark"
+primaryColor = "#7aa2f7"
+backgroundColor = "#0b1026"
+secondaryBackgroundColor = "#141a3a"
+textColor = "#dde3ff"
+font = "sans serif"
+
+[server]
+headless = true
