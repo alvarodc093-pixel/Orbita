@@ -6,7 +6,6 @@
 
 # Acceso a la API
 requests>=2.31
-python-dotenv>=1.0
 
 # Análisis de datos
 pandas>=2.0

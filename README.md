@@ -94,6 +94,11 @@ pip install -r requirements.txt
 # 4. Ingesta de datos (descarga la API de Launch Library 2)
 python ingesta.py
 
+# ¿Prisa? Carga parcial rápida (solo lanzamientos recientes):
+# python ingesta.py --desde 2010-01-01
+# (La carga completa de 1957 → hoy puede tardar: la API limita el ritmo.
+#  El script reanuda solo y guarda caché en data/raw/.)
+
 # 5. (Opcional) Indexar el corpus para el chat RAG
 python preparar_corpus.py
 

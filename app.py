@@ -116,7 +116,7 @@ def ultima_ejecucion():
 def preparar(launch):
     """Añade columnas derivadas y filtra ruido."""
     df = launch.copy()
-    df["net_dt"] = pd.to_datetime(df["net"], errors="coerce")
+    df["net_dt"] = pd.to_datetime(df["net"], errors="coerce", utc=True)
     df["anio"] = df["net_dt"].dt.year
     return df
 
@@ -599,7 +599,7 @@ with tab_proximos:
                 "Ejecuta `python ingesta.py --update` para actualizar.")
     else:
         prox = proximos.sort_values("net").copy()
-        prox["net_dt"] = pd.to_datetime(prox["net"], errors="coerce")
+        prox["net_dt"] = pd.to_datetime(prox["net"], errors="coerce", utc=True)
         ahora = pd.Timestamp.now(timezone.utc)
 
         dentro_7 = (prox["net_dt"] - ahora).dt.total_seconds().between(0, 7 * 86400).sum()
@@ -712,11 +712,21 @@ with tab_chat:
 
                 with st.chat_message("assistant"):
                     with st.spinner("Buscando en la base de datos..."):
-                        resultados = coleccion.query(query_texts=[prompt], n_results=k)
+                        try:
+                            resultados = coleccion.query(
+                                query_texts=[prompt], n_results=k
+                            )
+                        except Exception as e:
+                            st.error(
+                                f"No se pudo consultar el índice vectorial: {e}\n\n"
+                                "Comprueba que Ollama está en marcha y vuelve a "
+                                "intentarlo."
+                            )
+                            resultados = None
 
                         contexto = ""
                         fuentes = []
-                        if resultados["documents"] and resultados["documents"][0]:
+                        if resultados and resultados.get("documents") and resultados["documents"][0]:
                             for i, doc in enumerate(resultados["documents"][0]):
                                 meta = resultados["metadatas"][0][i]
                                 contexto += (
