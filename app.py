@@ -37,6 +37,23 @@ MODELO_CHAT = os.getenv("OLLAMA_MODELO", "llama3.2")
 MODELO_EMBEDDING = "nomic-embed-text"
 URL_OLLAMA = "http://localhost:11434"
 
+
+def _es_url_valida(valor):
+    """True solo si valor es una cadena http(s) aprovechable para st.image."""
+    return isinstance(valor, str) and valor.strip().startswith(("http://", "https://"))
+
+
+def _barra_h(serie, titulo="", escala="Plasma"):
+    """Barras horizontales ordenadas desde una Serie {categoría: valor}."""
+    df = serie.rename_axis("categoria").rename("valor").reset_index()
+    fig = px.bar(
+        df, x="valor", y="categoria", orientation="h",
+        color="valor", color_continuous_scale=escala, title=titulo,
+    )
+    fig.update_layout(yaxis={"categoryorder": "total ascending"})
+    return fig
+
+
 px.defaults.template = "plotly_dark"
 
 st.set_page_config(
@@ -302,13 +319,8 @@ with tab_resumen:
     with col_d:
         st.subheader("🏆 Top 10 agencias")
         top_agen = df.groupby("agency_name").size().sort_values(ascending=False).head(10)
-        fig = px.bar(
-            top_agen, x=top_agen.values, y=top_agen.index,
-            orientation="h", color=top_agen.values,
-            color_continuous_scale="Viridis",
-        )
+        fig = _barra_h(top_agen, escala="Viridis")
         fig.update_layout(
-            yaxis={"categoryorder": "total ascending"},
             xaxis_title="Lanzamientos", height=460,
         )
         st.plotly_chart(fig, width="stretch")
@@ -361,24 +373,14 @@ with tab_lanzamientos:
     with col_l:
         top_cohetes = df_tab.groupby("rocket_name").size().sort_values(
             ascending=False).head(12)
-        fig = px.bar(
-            top_cohetes, x=top_cohetes.values, y=top_cohetes.index,
-            orientation="h", color=top_cohetes.values,
-            color_continuous_scale="Plasma",
-            title="Top 12 cohetes",
-        )
-        fig.update_layout(yaxis={"categoryorder": "total ascending"}, height=380)
+        fig = _barra_h(top_cohetes, titulo="Top 12 cohetes", escala="Plasma")
+        fig.update_layout(height=380)
         st.plotly_chart(fig, width="stretch")
 
     with col_r:
         top_orbits = df_tab["orbit"].value_counts().head(10)
-        fig = px.bar(
-            top_orbits, x=top_orbits.values, y=top_orbits.index,
-            orientation="h", color=top_orbits.values,
-            color_continuous_scale="Turbo",
-            title="Órbitas objetivo",
-        )
-        fig.update_layout(yaxis={"categoryorder": "total ascending"}, height=380)
+        fig = _barra_h(top_orbits, titulo="Órbitas objetivo", escala="Turbo")
+        fig.update_layout(height=380)
         st.plotly_chart(fig, width="stretch")
 
     df_mostrar = df_tab.sort_values(orden_por).rename(columns={
@@ -402,7 +404,7 @@ with tab_lanzamientos:
         fila = df_tab[df_tab["name"] == elegido].iloc[0]
         c_izq, c_der = st.columns([1, 2])
         with c_izq:
-            if fila["image_url"]:
+            if _es_url_valida(fila["image_url"]):
                 st.image(fila["image_url"], width="stretch")
         with c_der:
             st.markdown(
@@ -480,12 +482,8 @@ with tab_agencias:
         st.plotly_chart(fig, width="stretch")
 
     paises = ag["country_code"].value_counts().head(12)
-    fig = px.bar(
-        paises, x=paises.values, y=paises.index, orientation="h",
-        color=paises.values, color_continuous_scale="Cividis",
-        title="Agencias por país",
-    )
-    fig.update_layout(yaxis={"categoryorder": "total ascending"}, height=360)
+    fig = _barra_h(paises, titulo="Agencias por país", escala="Cividis")
+    fig.update_layout(height=360)
     st.plotly_chart(fig, width="stretch")
 
     st.markdown("#### Tabla de agencias")
@@ -529,12 +527,9 @@ with tab_astronautas:
 
     with col_chart:
         nat_top = ast["nationality"].value_counts().head(12)
-        fig = px.bar(
-            nat_top, x=nat_top.values, y=nat_top.index, orientation="h",
-            color=nat_top.values, color_continuous_scale="Viridis",
-            title="Astronautas por nacionalidad (top 12)",
-        )
-        fig.update_layout(yaxis={"categoryorder": "total ascending"}, height=360)
+        fig = _barra_h(nat_top, titulo="Astronautas por nacionalidad (top 12)",
+                       escala="Viridis")
+        fig.update_layout(height=360)
         st.plotly_chart(fig, width="stretch")
 
     col_x, col_y = st.columns(2)
@@ -575,7 +570,7 @@ with tab_astronautas:
             fila_ast = ast[ast["name"] == eleccion].iloc[0]
             c_izq, c_der = st.columns([1, 2])
             with c_izq:
-                if fila_ast["profile_image"]:
+                if _es_url_valida(fila_ast["profile_image"]):
                     st.image(fila_ast["profile_image"], width="stretch")
             with c_der:
                 st.markdown(
@@ -625,7 +620,7 @@ with tab_proximos:
                         f"🛰️ {fila['orbit'] or '—'}"
                     )
                 with cc2:
-                    if fila["image_url"]:
+                    if _es_url_valida(fila["image_url"]):
                         st.image(fila["image_url"], width=90)
 
         st.divider()
@@ -829,7 +824,7 @@ with tab_apod:
             f"### {dato.get('title', '')}\n{dato.get('date', '')} · "
             f"{dato.get('copyright', 'NASA')}"
         )
-        if dato.get("media_type") == "image":
+        if dato.get("media_type") == "image" and _es_url_valida(dato.get("url")):
             st.image(dato.get("url"), width="stretch")
         elif dato.get("media_type") == "video":
             st.video(dato.get("url"))
