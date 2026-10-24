@@ -17,6 +17,7 @@ __pycache__/
 # ---------- Datos y cachés generados ----------
 # La base de datos se genera con `python ingesta.py` (no se versiona)
 data/*.db
+!data/espacio.db
 data/*.sqlite
 # Copias crudas de la API (descargadas por ingesta.py)
 data/raw/

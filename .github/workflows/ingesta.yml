@@ -1,0 +1,61 @@
+name: Ingesta de Launch Library 2
+
+# La API gratuita permite unas 15 peticiones por hora. La primera carga completa
+# (~100 peticiones) no cabe en un solo job, así que lo descargado se guarda en caché
+# y la siguiente ejecución continúa donde se quedó. Después, cada lunes basta con
+# una actualización incremental (--update).
+
+on:
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ingesta
+  cancel-in-progress: false
+
+jobs:
+  ingesta:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install requests
+
+      - name: Recuperar la caché de descargas
+        uses: actions/cache/restore@v4
+        with:
+          path: data/raw
+          key: ll2-raw-${{ github.run_id }}
+          restore-keys: ll2-raw-
+
+      - name: Descargar
+        run: |
+          if [ -f data/raw/_completo ]; then
+            python ingesta.py --update --sleep 4
+          else
+            python ingesta.py --sleep 4 && touch data/raw/_completo
+          fi
+
+      - name: Guardar la caché aunque el job se corte
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/raw
+          key: ll2-raw-${{ github.run_id }}
+
+      - name: Commit de la base
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/espacio.db
+          git diff --cached --quiet || git commit -m "data: ingesta $(date +'%Y-%m-%d')"
+          git push
