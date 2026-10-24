@@ -145,12 +145,13 @@ def fichas_cohetes(conn):
     fichas = []
     for cohete, familia, n, exitos, fallos, agencias in filas:
         ex = ", ".join(ejemplos.get(cohete, [])[:3]) or "sin datos"
-        tasa = (exitos / n * 100) if n else 0.0
+        resueltos = exitos + fallos
+        tasa = (exitos / resueltos * 100) if resueltos else None
         partes = [
             f"COHETE: {cohete}" + (f" (familia {familia})" if familia else ""),
             f"Agencias que lo usan: {agencias}" if agencias else "",
             f"Número de lanzamientos: {n}",
-            f"Lanzamientos exitosos: {exitos} ({tasa:.0f}% de éxito)" if n else "",
+            f"Lanzamientos exitosos: {exitos} de {resueltos} ya realizados ({tasa:.0f}% de éxito)" if tasa is not None else "",
             f"Fallos: {fallos}" if fallos else "Sin fallos registrados",
             f"Misiones de ejemplo: {ex}",
         ]
@@ -173,17 +174,19 @@ def fichas_agencias(conn):
                (SELECT COUNT(*) FROM launches l
                  WHERE l.agency_name = a.name) AS n_lanzamientos,
                (SELECT SUM(CASE WHEN l.status_name='Success' THEN 1 ELSE 0 END)
-                  FROM launches l WHERE l.agency_name = a.name) AS n_exitos
+                  FROM launches l WHERE l.agency_name = a.name) AS n_exitos,
+               (SELECT SUM(CASE WHEN l.status_name IN ('Success','Failure','Partial Failure') THEN 1 ELSE 0 END)
+                  FROM launches l WHERE l.agency_name = a.name) AS n_resueltos
         FROM agencies a
         ORDER BY n_lanzamientos DESC
     """
     filas = conn.execute(sql).fetchall()
 
     fichas = []
-    for (aid, nombre, tipo, pais, fundacion, desc, n, exitos) in filas:
+    for (aid, nombre, tipo, pais, fundacion, desc, n, exitos, resueltos) in filas:
         if not nombre:
             continue
-        tasa = (exitos / n * 100) if n else None
+        tasa = (exitos / resueltos * 100) if resueltos else None
         partes = [
             f"AGENCIA: {nombre}",
             f"Tipo: {tipo}" if tipo else "",
@@ -193,7 +196,7 @@ def fichas_agencias(conn):
             "Sin lanzamientos registrados en la base de datos",
         ]
         if n:
-            partes.append(f"Tasa de éxito: {tasa:.0f}% ({exitos} de {n})")
+            partes.append(f"Tasa de éxito: {tasa:.0f}% ({exitos} de {resueltos} lanzamientos ya realizados)")
         if desc:
             partes.append(f"Descripción: {_acortar(desc)}")
         texto = "\n".join(p for p in partes if p)

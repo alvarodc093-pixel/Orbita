@@ -164,9 +164,13 @@ proximos = launch[launch["net"] > ahora_iso].copy()
 ultimo_update = ultima_ejecucion()
 
 
+# Solo los lanzamientos ya resueltos cuentan para la tasa de éxito: los futuros
+# (TBD, Go...) no son ni éxitos ni fallos.
+RESUELTOS = ["Success", "Failure", "Partial Failure"]
+
+
 def tasa_exito(df):
-    decididos = df[df["status_name"].isin(
-        ["Success", "Failure", "Partial Failure", "Failed Launch"])]
+    decididos = df[df["status_name"].isin(RESUELTOS)]
     if decididos.empty:
         return None
     return (decididos["status_name"] == "Success").mean() * 100
@@ -229,7 +233,7 @@ st.sidebar.markdown(
 # ---------------------------------------------------------------------------
 st.title("🚀 Órbita · La industria espacial en cifras")
 st.caption(
-    "Más de 7.900 lanzamientos desde 1957. Explora quién lanza, con qué "
+    f"{len(launch):,} lanzamientos desde 1957 (incluidos los programados). Explora quién lanza, con qué "
     "fiabilidad, desde dónde y qué viene. Los datos proceden de la API "
     "pública **Launch Library 2**, sin necesidad de registro."
 )
@@ -437,10 +441,11 @@ with tab_agencias:
     # Actividad real calculada desde los lanzamientos
     actividad = df.groupby("agency_name").agg(
         lanzamientos=("id", "count"),
+        resueltos=("status_name", lambda s: s.isin(RESUELTOS).sum()),
         exitos=("status_name", lambda s: (s == "Success").sum()),
     ).reset_index()
     actividad["tasa_%"] = (
-        actividad["exitos"] / actividad["lanzamientos"] * 100
+        actividad["exitos"] / actividad["resueltos"].where(actividad["resueltos"] > 0) * 100
     ).round(1)
     actividad = actividad[actividad["lanzamientos"] > 0]
 
@@ -669,9 +674,10 @@ with tab_chat:
         rag_disponible = False
 
     if not rag_disponible:
-        st.warning(
-            "`chromadb` no está instalado. Instálalo con "
-            "`pip install -r requirements.txt`."
+        st.info(
+            "El chat necesita ChromaDB y un modelo local de Ollama, así que no está "
+            "disponible en la versión web. Para usarlo, ejecuta la app en local "
+            "(ver README)."
         )
     else:
         try:
@@ -800,13 +806,18 @@ with tab_apod:
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def obtener_apod(api_key):
-        url = "https://api.nasa.gov/planetary/apod"
+        url = f"https://api.nasa.gov/planetary/apod?api_key={api_key}"
         try:
-            resp = requests.get(url, params={"api_key": api_key}, timeout=20)
+            resp = requests.get(url, timeout=20)
             resp.raise_for_status()
             return resp.json()
         except Exception as e:
-            return {"error": str(e)}
+            try:  # en la demo web (Pyodide) requests no tiene red
+                import json
+                from pyodide.http import open_url
+                return json.load(open_url(url))
+            except Exception:
+                return {"error": str(e)}
 
     dato = obtener_apod(clave)
 
