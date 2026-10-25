@@ -1,9 +1,9 @@
 name: Ingesta de Launch Library 2
 
-# La API gratuita permite unas 15 peticiones por hora. La primera carga completa
-# (~100 peticiones) no cabe en un solo job, así que lo descargado se guarda en caché
-# y la siguiente ejecución continúa donde se quedó. Después, cada lunes basta con
-# una actualización incremental (--update).
+# La primera carga completa usa el endpoint de desarrollo de Launch Library 2, que no
+# tiene límite de peticiones. Después, cada lunes basta con una actualización incremental
+# (--update) contra la API de producción, que solo necesita unas pocas peticiones.
+# Lo descargado se guarda en caché para continuar si un job se corta.
 
 on:
   schedule:
@@ -42,7 +42,8 @@ jobs:
           if [ -f data/raw/_completo ]; then
             python ingesta.py --update --sleep 4
           else
-            python ingesta.py --sleep 4 && touch data/raw/_completo
+            # Carga histórica desde el endpoint de desarrollo, que no tiene límite de peticiones
+            LL2_BASE_URL=https://lldev.thespacedevs.com/2.0.0/ python ingesta.py --sleep 0.5 && touch data/raw/_completo
           fi
 
       - name: Guardar la caché aunque el job se corte

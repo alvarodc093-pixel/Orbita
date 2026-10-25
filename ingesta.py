@@ -29,6 +29,7 @@ se reanuda desde la última página completa sin repetir trabajo.
 """
 
 import argparse
+import os
 import json
 import re
 import sqlite3
@@ -43,7 +44,9 @@ import requests
 # --------------------------------------------------------------------------
 
 RAIZ = Path(__file__).resolve().parent
-BASE_URL = "https://ll.thespacedevs.com/2.0.0/"
+# La API de producción permite ~15 peticiones/hora. Para la carga histórica completa
+# se puede usar el endpoint de desarrollo (sin límite): LL2_BASE_URL=https://lldev.thespacedevs.com/2.0.0/
+BASE_URL = os.environ.get("LL2_BASE_URL", "https://ll.thespacedevs.com/2.0.0/")
 DB_PATH = RAIZ / "data" / "espacio.db"
 RAW_DIR = RAIZ / "data" / "raw"
 ESTADO_PATH = RAW_DIR / "_estado.json"
