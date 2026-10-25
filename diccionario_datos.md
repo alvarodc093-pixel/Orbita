@@ -6,7 +6,7 @@ Fuente de los datos: [Launch Library 2](https://ll.thespacedevs.com) (The Space 
 ## Tablas
 
 ### `launches`
-Un lanzamiento orbital o suborbital. Es la tabla principal del proyecto (más de 7.900 registros desde 1957).
+Un lanzamiento orbital o suborbital. Es la tabla principal del proyecto (8.120 registros desde 1957 a 25/10/2026).
 
 | Campo | Tipo | Descripción |
 |---|---|---|
@@ -74,7 +74,7 @@ Astronautas y cosmonautas (858 registros).
 | `nationality` | TEXT | Nacionalidad (ej. "American", "Russian") |
 | `date_of_birth` / `date_of_death` | TEXT | Fechas de nacimiento/fallecimiento |
 | `first_flight` / `last_flight` | TEXT | Primer y último vuelo |
-| `flights_count` | INTEGER | Número de vuelos |
+| `flights_count` | INTEGER | Número de vuelos (vacío: el listado de la API v2.0.0 no lo incluye) |
 | `agency` | TEXT | Agencia de pertenencia |
 | `bio` | TEXT | Biografía |
 | `profile_image` | TEXT | Foto de perfil |

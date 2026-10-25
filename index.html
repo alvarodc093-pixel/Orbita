@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Órbita · La industria espacial en cifras</title>
+  <meta name="description" content="Más de 8.000 lanzamientos espaciales desde 1957 con datos de Launch Library 2, en una app de Streamlit ejecutada en el navegador con stlite.">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@stlite/browser@1.11.0/build/stlite.css">
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0b1026; }
+    #carga { padding: 48px 24px; text-align: center; color: #dde3ff; }
+  </style>
+</head>
+<body>
+  <div id="root"><p id="carga">Cargando la app en tu navegador (la primera vez tarda unos 20-30 segundos)…</p></div>
+  <script type="module">
+    // La app de Streamlit se ejecuta en el navegador con stlite (Pyodide). En producción el código
+    // y la base se leen de la rama main de GitHub, que se actualiza cada semana con GitHub Actions.
+    import { mount } from "https://cdn.jsdelivr.net/npm/@stlite/browser@1.11.0/build/stlite.js";
+    const local = ["localhost", "127.0.0.1"].includes(location.hostname);
+    const base = local ? "" : "https://raw.githubusercontent.com/alvarodc093-pixel/Orbita/main/";
+    const tema = await (await fetch(base + ".streamlit/config.toml")).text();
+    mount(
+      {
+        requirements: ["pandas", "plotly", "requests", "sqlite3"],
+        entrypoint: "app.py",
+        files: {
+          "app.py": { url: base + "app.py" },
+          "data/espacio.db": { url: base + "data/espacio.db" },
+          ".streamlit/config.toml": { data: tema + "\n[client]\ntoolbarMode = \"viewer\"\n" },
+        },
+      },
+      document.getElementById("root"),
+    );
+  </script>
+</body>
+</html>

@@ -50,7 +50,8 @@ def _barra_h(serie, titulo="", escala="Plasma"):
         df, x="valor", y="categoria", orientation="h",
         color="valor", color_continuous_scale=escala, title=titulo,
     )
-    fig.update_layout(yaxis={"categoryorder": "total ascending"})
+    fig.update_layout(yaxis={"categoryorder": "total ascending"}, xaxis_title=None,
+                      yaxis_title=None, coloraxis_showscale=False)
     return fig
 
 
@@ -183,9 +184,11 @@ st.sidebar.title("🚀 Órbita")
 
 anios = sorted(int(a) for a in launch["anio"].dropna().unique())
 if not anios:
-    min_anio, max_anio = 1957, 2026
+    min_anio, max_anio = 1957, datetime.now(timezone.utc).year
 else:
-    min_anio, max_anio = anios[0], anios[-1]
+    # Hay lanzamientos "programados" con fechas de relleno de hasta 2039: el periodo
+    # llega como mucho al año que viene para no estirar las series.
+    min_anio, max_anio = anios[0], min(anios[-1], datetime.now(timezone.utc).year + 1)
 rango = st.sidebar.slider(
     "Periodo (años)",
     min_value=min_anio,
@@ -194,19 +197,19 @@ rango = st.sidebar.slider(
 )
 
 estados_disponibles = sorted(launch["status_name"].dropna().unique())
-estados_sel = st.sidebar.multiselect("Estado", estados_disponibles)
+estados_sel = st.sidebar.multiselect("Estado", estados_disponibles, placeholder="Todos")
 
 top_agencias_lista = (
     launch.groupby("agency_name").size().sort_values(ascending=False).head(25).index.tolist()
 )
 agencias_sel = st.sidebar.multiselect(
-    "Agencia", [a for a in top_agencias_lista if a]
+    "Agencia", [a for a in top_agencias_lista if a], placeholder="Todas"
 )
 
 orbits_lista = sorted(
     o for o in launch["orbit"].dropna().unique()
 )
-orbits_sel = st.sidebar.multiselect("Órbita", orbits_lista)
+orbits_sel = st.sidebar.multiselect("Órbita", orbits_lista, placeholder="Todos")
 
 # Aplicar filtros
 filtro = (launch["anio"] >= rango[0]) & (launch["anio"] <= rango[1])
@@ -432,7 +435,7 @@ with tab_agencias:
     st.subheader("🏢 Agencias espaciales y operadores")
 
     tipos = sorted(a for a in agencies["type"].dropna().unique())
-    tipo_sel = st.multiselect("Tipo de agencia", tipos)
+    tipo_sel = st.multiselect("Tipo de agencia", tipos, placeholder="Todos")
 
     ag = agencies.copy()
     if tipo_sel:
@@ -473,10 +476,13 @@ with tab_agencias:
         st.plotly_chart(fig, width="stretch")
 
     with col_b:
-        fiables = actividad[actividad["lanzamientos"] >= 20]
+        fiables = actividad[actividad["lanzamientos"] >= 20].copy()
+        # Solo se rotulan las 8 agencias con más lanzamientos; el resto se ve al pasar el ratón.
+        top8 = fiables.nlargest(8, "lanzamientos")["agency_name"]
+        fiables["etiqueta"] = fiables["agency_name"].where(fiables["agency_name"].isin(top8), "")
         fig = px.scatter(
-            fiables, x="tasa_%", y="lanzamientos",
-            size="lanzamientos", color="tasa_%", text="agency_name",
+            fiables, x="tasa_%", y="lanzamientos", hover_name="agency_name",
+            size="lanzamientos", color="tasa_%", text="etiqueta",
             color_continuous_scale="Turbo",
             title="Fiabilidad vs volumen (agencias con ≥ 20 lanzamientos)",
             labels={"tasa_%": "Tasa de éxito (%)", "lanzamientos": "Lanzamientos"},
@@ -517,9 +523,9 @@ with tab_astronautas:
     col_filtros, col_chart = st.columns([1, 2])
     with col_filtros:
         nats = sorted(n for n in astronauts["nationality"].dropna().unique())
-        nat_sel = st.multiselect("Nacionalidad", nats)
+        nat_sel = st.multiselect("Nacionalidad", nats, placeholder="Todos")
         estados_ast = sorted(a for a in astronauts["status"].dropna().unique())
-        estado_sel = st.multiselect("Estado", estados_ast)
+        estado_sel = st.multiselect("Estado", estados_ast, placeholder="Todos")
         busqueda_ast = st.text_input("🔍 Buscar astronauta")
 
     ast = astronauts.copy()
@@ -546,22 +552,23 @@ with tab_astronautas:
         )
         st.plotly_chart(fig, width="stretch")
     with col_y:
-        vuelos = ast["flights_count"].dropna()
-        if not vuelos.empty:
-            fig = px.histogram(
-                vuelos, nbins=15, title="Distribución de vuelos por astronauta",
-                color_discrete_sequence=["#7aa2f7"],
-            )
-            fig.update_layout(xaxis_title="Nº de vuelos")
+        # El listado de la API v2.0.0 no incluye el número de vuelos: se usa el primer vuelo.
+        primer = pd.to_datetime(ast["first_flight"], errors="coerce", utc=True).dt.year.dropna()
+        if not primer.empty:
+            por_decada = (primer // 10 * 10).astype(int).value_counts().sort_index()
+            fig = px.bar(x=por_decada.index.astype(str) + "s", y=por_decada.values,
+                         title="Astronautas según la década de su primer vuelo",
+                         labels={"x": "Década", "y": "Astronautas"},
+                         color_discrete_sequence=["#7aa2f7"])
             st.plotly_chart(fig, width="stretch")
 
     st.markdown("#### Tabla de astronautas")
     st.dataframe(
-        ast[["name", "nationality", "status", "agency", "flights_count",
-             "first_flight", "date_of_birth"]].rename(columns={
+        ast[["name", "nationality", "status", "agency", "first_flight",
+             "last_flight", "date_of_birth"]].rename(columns={
                  "name": "Nombre", "nationality": "Nacionalidad",
                  "status": "Estado", "agency": "Agencia",
-                 "flights_count": "Vuelos", "first_flight": "Primer vuelo",
+                 "first_flight": "Primer vuelo", "last_flight": "Último vuelo",
                  "date_of_birth": "Nacimiento",
              }).sort_values("Nombre"),
         width="stretch",
@@ -583,7 +590,7 @@ with tab_astronautas:
                     f"- **Nacionalidad:** {fila_ast['nationality'] or '—'}  \n"
                     f"- **Estado:** {fila_ast['status'] or '—'}  \n"
                     f"- **Agencia:** {fila_ast['agency'] or '—'}  \n"
-                    f"- **Vuelos:** {fila_ast['flights_count'] or '—'}  \n"
+                    f"- **Último vuelo:** {fila_ast['last_flight'] or '—'}  \n"
                     f"- **Primer vuelo:** {fila_ast['first_flight'] or '—'}"
                 )
                 if fila_ast["bio"]:
